@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>作业题目 · 学习通作业助手</title>
+<link rel="icon" href="/icon.ico">
+<style>
+  :root{
+    --bg:#eef2f7; --card:#fff; --line:#dfe5ec; --text:#1f2328; --muted:#6b7280;
+    --accent:#2f6fbd; --accent-dark:#25589a;
+    --todo:#d93025; --peer:#7c3aed; --grading:#d97706; --done:#188038; --unknown:#9ca3af;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "Microsoft YaHei UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:16px 16px 48px}
+
+  /* ── 顶栏 ── */
+  header{display:flex;align-items:center;gap:14px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+  header img{width:46px;height:46px;flex:0 0 46px}
+  .brand h1{margin:0;font-size:17px;font-weight:700}
+  .brand p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  a.back{font-size:13px;color:var(--accent);text-decoration:none;white-space:nowrap}
+  a.back:hover{text-decoration:underline}
+
+  button{font-family:inherit;font-size:14px;border-radius:9px;padding:9px 20px;
+    border:1px solid var(--line);background:#fff;color:var(--text);cursor:pointer}
+  button:hover{background:#f6f8fb}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{background:var(--accent-dark)}
+  button:disabled{opacity:.55;cursor:default}
+  button.big{font-size:15.5px;padding:13px 30px;border-radius:11px}
+  button.mini{font-size:12px;padding:3px 10px;border-radius:7px;color:var(--muted)}
+
+  /* ── 控制区 ── */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;margin-top:14px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .hint{font-size:12.5px;color:var(--muted)}
+  .hint b{color:var(--todo)}
+  label.opt{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}
+  label.opt input{width:15px;height:15px;cursor:pointer}
+  input[type=number]{width:74px;padding:6px 9px;border:1px solid var(--line);
+    border-radius:8px;font-family:inherit;font-size:13px}
+  select{padding:6px 9px;border:1px solid var(--line);border-radius:8px;
+    font-family:inherit;font-size:13px;background:#fff}
+
+  /* ── 进度 ── */
+  .prog{margin-top:14px;display:none}
+  .prog.show{display:block}
+  .bar{height:8px;background:#e6ecf3;border-radius:999px;overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+  .msg{font-size:13.5px;font-weight:600}
+  .msg.err{color:var(--todo)}
+  .msg.ok{color:var(--done)}
+  .log{margin-top:10px;max-height:190px;overflow:auto;background:#f8fafc;
+    border:1px solid var(--line);border-radius:9px;padding:9px 12px;
+    font:12.5px/1.75 ui-monospace,Consolas,"Courier New",monospace;white-space:pre-wrap}
+  .log .t{color:#9aa4b2;margin-right:8px}
+  .log .err{color:var(--todo)}
+  .log .ok{color:var(--done)}
+  .log .muted{color:var(--muted)}
+
+  /* ── 结果 ── */
+  .sum{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:10px 16px;min-width:104px}
+  .stat .n{font-size:20px;font-weight:700;line-height:1.25}
+  .stat .k{font-size:12px;color:var(--muted)}
+
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0}
+  .tab{border:1px solid var(--line);background:var(--card);border-radius:999px;
+    padding:5px 13px;cursor:pointer;font-size:13px;color:var(--muted);user-select:none}
+  .tab:hover{border-color:#cbd5e1}
+  .tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  .hw{background:var(--card);border:1px solid var(--line);border-radius:11px;
+    margin-top:10px;overflow:hidden}
+  .hwhead{display:flex;align-items:center;gap:10px;padding:12px 15px;cursor:pointer;user-select:none}
+  .hwhead:hover{background:#fafbfc}
+  .arrow{color:var(--muted);font-size:11px;width:10px;transition:transform .15s}
+  .hw.open .arrow{transform:rotate(90deg)}
+  .hwname{font-weight:600}
+  .hwcourse{color:var(--muted);font-size:12.5px}
+  .badges{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .badge{font-size:12px;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:var(--muted);white-space:nowrap}
+  .badge.todo{background:#fdecea;color:var(--todo);font-weight:600}
+  .badge.ok{background:#e7f6ec;color:var(--done)}
+  .badge.err{background:#fff7ed;color:#c2410c}
+  .hwbody{display:none;border-top:1px solid var(--line);padding:4px 0 12px}
+  .hw.open .hwbody{display:block}
+  .hwmeta{padding:10px 15px 4px;font-size:12.5px;color:var(--muted);line-height:1.9}
+  .hwmeta a{color:var(--accent);text-decoration:none}
+  .hwmeta a:hover{text-decoration:underline}
+
+  .q{border-top:1px solid #f1f4f8;padding:13px 15px 4px}
+  .qsec{margin:12px 15px 0;padding:6px 11px;background:#eef4fb;border-radius:7px;
+    font-size:13px;font-weight:600;color:var(--accent)}
+  .qhead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .qno{font-weight:700;font-size:14.5px}
+  .qtype{font-size:12px;padding:1px 8px;border-radius:5px;background:#eef4fb;color:var(--accent)}
+  .qscore{font-size:12px;color:var(--grading);font-weight:600}
+  .qtitle{font-weight:600;margin:6px 0 2px;font-size:14px}
+  .sec{margin:9px 0 0}
+  .sec .k{font-size:12.5px;font-weight:600;color:#4b5563;margin-bottom:3px}
+  .sec .v{white-space:pre-wrap;font-size:13.5px}
+  pre.code{margin:0;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;
+    padding:9px 12px;overflow:auto;font:12.5px/1.7 ui-monospace,Consolas,"Courier New",monospace;
+    white-space:pre}
+  ul.opts{margin:2px 0 0;padding-left:20px;font-size:13.5px}
+  ul.opts li{margin:2px 0}
+  .qtags{margin-top:9px;font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .qtags .warn{color:#c2410c}
+  .airow{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .airow .lab{color:var(--muted)}
+  button.ai{border-color:#c7d7ee;color:var(--accent);font-weight:600}
+  button.ai:hover{background:#eef4fb}
+  button.ai:disabled{opacity:.45;cursor:default;background:#fff}
+
+  /* ── 打包给 AI ── */
+  .packbox{margin-top:14px;background:#f7faff;border:1px solid #cfe0f5;
+    border-radius:11px;padding:14px 16px}
+  .packbox .ptitle{font-size:13.5px;font-weight:700;color:var(--accent-dark);
+    margin-bottom:10px}
+  .packbox .row{margin-top:0}
+  .packbox button{margin-right:2px}
+
+  .warnbar{margin-top:11px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;
+    border-radius:9px;padding:11px 14px;font-size:13px;line-height:1.8}
+  .warnbar b{color:#9a3412}
+  .warnbar code{background:#fde9d5;padding:1px 5px;border-radius:4px}
+  .empty{background:var(--card);border:1px dashed var(--line);border-radius:11px;
+    padding:44px;text-align:center;color:var(--muted);margin-top:14px}
+  footer{margin-top:22px;color:var(--muted);font-size:12.5px;line-height:1.95}
+  footer code{background:#e9eef5;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img src="/icon.png" alt="">
+    <div class="brand">
+      <h1>作业题目</h1>
+      <p>一键把待办作业的题目抓下来 —— 看清楚每份作业到底要干什么</p>
+    </div>
+    <div class="spacer"></div>
+    <a class="back" href="/">← 回作业看板</a>
+  </header>
+
+  <div class="panel">
+    <div class="row">
+      <button id="go" class="primary big">一键抓取全部待办题目</button>
+      <label class="opt"><input type="checkbox" id="expired"> 连已过期的一起抓</label>
+      <label class="opt">最多抓 <input type="number" id="maxn" min="1" placeholder="全部"> 份</label>
+      <label class="opt">速度
+        <select id="speed"></select>
+      </label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <span class="hint" id="scope">正在读取…</span>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <span class="hint">点按钮后会弹出一个浏览器窗口（抓取要用你的登录态），<b>别关它</b>，抓完自己会关。</span>
+    </div>
+
+    <div class="packbox">
+      <div class="ptitle">把题目打包 → 丢给 AI</div>
+      <div class="row">
+        <button id="pkSend" class="primary">一键打包并粘贴给 AI</button>
+        <button class="ai" data-ai="deepseek">DeepSeek</button>
+        <button class="ai" data-ai="qianwen">千问</button>
+        <button class="ai" data-ai="glm">智谱清言</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="pkCopy">复制打包内容（带作答要求）</button>
+        <button id="pkDownload">下载成文档 (.md)</button>
+        <button id="pkSave">存到 data\题目\</button>
+        <span class="hint" id="pkInfo"></span>
+      </div>
+      <div class="hint" style="margin-top:8px">
+        「<b>一键打包并粘贴给 AI</b>」= 把下面列出的题目整理成一份文档（含一句
+        <b>「每题给答案 + 说明理由、编程题给完整代码」</b>的要求）复制到剪贴板，
+        同时打开你选的 AI 网页，到那边 <b>Ctrl+V</b> 回车就行。
+        右边三个按钮是单独打开某个 AI。想只打包某一份作业，先点上面的课程标签再操作。
+      </div>
+      <div class="hint" style="margin-top:6px;color:var(--muted)">
+        ⚠️ 本程序<b>只整理题目、只负责投递</b>，不生成答案 —— 答案是你和 AI 之间的事，
+        请自己核对后再用。
+      </div>
+    </div>
+    <div class="warnbar" id="warnbar" style="display:none"></div>
+
+    <div class="row" style="margin-top:10px">
+      <button id="ub" title="抓取被要求输图片验证码时点这个">过验证码</button>
+      <span class="hint" id="ubMsg">抓取被风控中断时点这个 —— 程序会把<b>验证码页面本身</b>打开在浏览器窗口里，你输完它自己会发现。</span>
+    </div>
+
+    <div class="row" style="margin-top:8px">
+      <button id="cl" title="清掉界面窗口的浏览器缓存（会自己重开窗口，登录态和题目数据不动）">清理缓存</button>
+      <span class="hint">清的是浏览器缓存和排查用的临时文件 —— <b>登录态、已扫的作业、抓下来的题目都不动</b>。各档位和明细在<a href="/" style="color:var(--accent)">主界面</a>的同一个按钮里，这里点会直接按安全档清。</span>
+    </div>
+
+    <div class="prog" id="prog">
+      <div class="msg" id="pmsg"></div>
+      <div class="bar"><i id="pbar"></i></div>
+      <div class="log" id="plog"></div>
+    </div>
+  </div>
+
+  <div class="sum" id="sum"></div>
+  <div class="tabs" id="tabs"></div>
+  <div id="list"></div>
+</div>
+
+<footer class="wrap" id="foot"></footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+let RESULT = null;      // 当前展示的抓取结果
+let COURSE = '';        // 课程筛选，'' = 全部
+let POLL = null;
+
+/* ── 顶部选项 ───────────────────────────────────────── */
+async function loadIndex() {
+  let d;
+  try { d = await (await fetch('/api/tasks')).json(); }
+  catch (e) { $('scope').textContent = '读取失败：' + e; return; }
+
+  const c = d.candidates || {};
+  const scanned = d.scanned_at ? `（上次扫描：${d.scanned_at}）` : '（还没扫过作业）';
+  let text = `待办 ${c.pending || 0} 份，其中已过期 ${c.expired || 0} 份`;
+  text += `；本次可抓 ${(c.pending || 0) - (c.expired || 0)} 份`;
+  $('scope').textContent = text + ' ' + scanned;
+
+  $('speed').innerHTML = (d.speeds || []).map(s =>
+    `<option value="${esc(s.id)}"${s.id === d.speed ? ' selected' : ''}>${esc(s.label)}（约 ${s.sec_per_course} 秒/份）</option>`
+  ).join('');
+
+  if (d.saved && d.saved.tasks && d.saved.tasks.length) {
+    RESULT = d.saved;
+    render();
+  } else {
+    $('list').innerHTML = '<div class="empty">还没有抓过题目。<br>点上面的按钮，一次把待办作业的题目全抓下来。</div>';
+  }
+}
+
+/* ── 抓取 ───────────────────────────────────────────── */
+async function start() {
+  $('go').disabled = true;
+  $('prog').classList.add('show');
+  $('pbar').style.width = '0%';
+  $('pmsg').className = 'msg';
+  $('pmsg').textContent = '正在启动…';
+  $('plog').innerHTML = '';
+
+  const body = {
+    include_expired: $('expired').checked,
+    speed: $('speed').value
+  };
+  const n = parseInt($('maxn').value, 10);
+  if (n > 0) body.max_items = n;
+
+  try {
+    const r = await (await fetch('/api/tasks/fetch', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    })).json();
+    if (!r.started) { $('pmsg').textContent = '已经有一个抓取在跑了，等它跑完。'; }
+  } catch (e) {
+    $('pmsg').className = 'msg err';
+    $('pmsg').textContent = '启动失败：' + e;
+    $('go').disabled = false;
+    return;
+  }
+  poll();
+}
+
+function poll() {
+  clearInterval(POLL);
+  POLL = setInterval(async () => {
+    let s;
+    try { s = await (await fetch('/api/tasks/state')).json(); } catch (e) { return; }
+
+    $('pmsg').textContent = s.message || '';
+    $('pmsg').className = 'msg' + (s.phase === 'error' || s.phase === 'aborted' ? ' err'
+                                 : s.phase === 'done' ? ' ok' : '');
+    const pct = s.total ? Math.round((s.done / s.total) * 100) : (s.running ? 4 : 0);
+    $('pbar').style.width = pct + '%';
+
+    $('plog').innerHTML = (s.log || []).map(l =>
+      `<div><span class="t">${esc(l.t)}</span><span class="${esc(l.tag || '')}">${esc(l.m)}</span></div>`
+    ).join('');
+    $('plog').scrollTop = $('plog').scrollHeight;
+
+    if (!s.running) {
+      clearInterval(POLL); POLL = null;
+      $('go').disabled = false;
+      if (s.result) { RESULT = s.result; COURSE = ''; render(); }
+      await loadIndex();
+    }
+  }, 1000);
+}
+
+/* ── 渲染结果 ───────────────────────────────────────── */
+function render() {
+  const tasks = (RESULT && RESULT.tasks) || [];
+  const s = (RESULT && RESULT.summary) || {};
+
+  $('sum').innerHTML = [
+    ['份数', s.ok != null ? s.ok + '/' + s.fetched : tasks.length],
+    ['题目', s.questions != null ? s.questions : '—'],
+    ['失败', s.failed != null ? s.failed : '—'],
+    ['耗时', (s.elapsed_sec != null ? s.elapsed_sec + ' 秒' : '—')],
+  ].map(([k, n]) => `<div class="stat"><div class="n">${esc(n)}</div><div class="k">${esc(k)}</div></div>`).join('');
+
+  // 课程筛选
+  const courses = [];
+  tasks.forEach(t => { if (!courses.includes(t.course_name)) courses.push(t.course_name); });
+  let tabs = `<div class="tab${COURSE === '' ? ' on' : ''}" data-c="">全部 ${tasks.length}</div>`;
+  tabs += courses.map(c => {
+    const n = tasks.filter(t => t.course_name === c).length;
+    return `<div class="tab${COURSE === c ? ' on' : ''}" data-c="${esc(c)}">${esc(c)} ${n}</div>`;
+  }).join('');
+  $('tabs').innerHTML = tasks.length ? tabs : '';
+  $('tabs').querySelectorAll('.tab').forEach(el => {
+    el.onclick = () => { COURSE = el.dataset.c; render(); };
+  });
+
+  const shown = tasks.filter(t => !COURSE || t.course_name === COURSE);
+  if (!shown.length) {
+    $('list').innerHTML = '<div class="empty">没有匹配的作业。</div>';
+    return;
+  }
+  $('list').innerHTML = shown.map(hwCard).join('');
+  $('list').querySelectorAll('.hwhead').forEach(el => {
+    el.onclick = () => el.parentNode.classList.toggle('open');
+  });
+  $('list').querySelectorAll('[data-copy]').forEach(btn => {
+    btn.onclick = ev => {
+      ev.stopPropagation();
+      copy(btn, btn.dataset.copy);
+    };
+  });
+  // 「问 AI」：顶部按钮一次性处理，不再每题挂三个（太乱）
+
+  $('foot').innerHTML =
+    `抓取时间：${esc(RESULT.fetched_at || '未知')}。题目已落盘到 <code>data\\题目\\</code>（每份作业一个 .md，外加一份「全部题目.md」）。<br>` +
+    `本页只负责把题目抓下来、整理清楚 —— 答案与提交在你自己手里。<br>` +
+    `顶部的「去问 AI」三个按钮 = <b>把当前列出的题目复制到剪贴板</b> + <b>用系统浏览器打开对应网页</b>（DeepSeek / 千问 / 智谱清言）。` +
+    `它只是个快捷方式：题目是你自己发出去的，那边的回答和本程序无关，拿去核对前请自己判断。`;
+}
+
+function hwCard(t) {
+  const s = t.summary || {};
+  const badges = [];
+  if (t.state_text) badges.push(`<span class="badge todo">${esc(t.state_text)}</span>`);
+  if (s.total) badges.push(`<span class="badge">${s.total} 道</span>`);
+  if (s.score) badges.push(`<span class="badge">${s.score} 分</span>`);
+  if (s.need_upload) badges.push(`<span class="badge">要交附件</span>`);
+  badges.push(t.ok ? '<span class="badge ok">已解析</span>' : '<span class="badge err">没解析出</span>');
+
+  let body = `<div class="hwmeta">`;
+  body += `剩余：${esc(t.remain_text || (t.is_expired ? '已过期' : '未标注'))}`;
+  body += `　·　抓取于 ${esc(t.fetched_at || '')}`;
+  if (t.from_cache) body += `　·　<span style="color:#c2410c">⚠️ 来自上次扫描的旧数据，截止时间可能已不准</span>`;
+  body += `<br>原页面：<a href="${esc(t.url)}" target="_blank" rel="noreferrer">${esc(t.url.slice(0, 110))}…</a>`;
+  body += `<br><button class="mini" data-copy="${esc(mdFor(t))}">复制这份作业的 Markdown</button>`;
+  body += `</div>`;
+
+  if (t.error) body += `<div class="q"><div class="sec"><div class="v" style="color:#c2410c">⚠️ ${esc(t.error)}</div></div></div>`;
+
+  let lastSec = null;
+  (t.questions || []).forEach(q => {
+    if (q.section && q.section !== lastSec) {
+      body += `<div class="qsec">${esc(q.section)}</div>`;
+      lastSec = q.section;
+    }
+    body += qBlock(q);
+  });
+
+  if (!t.questions || !t.questions.length) {
+    if (t.fallback_text) {
+      body += `<div class="q"><div class="sec"><div class="k">页面正文（没解析出题目，原样留档）</div>` +
+              `<pre class="code">${esc(t.fallback_text.slice(0, 4000))}</pre></div></div>`;
+    }
+  }
+
+  const open = (s.total && (t.remain_hours != null && t.remain_hours <= 72)) ? ' open' : '';
+  return `<div class="hw${open}">
+    <div class="hwhead"><span class="arrow">▶</span>
+      <span class="hwname">${esc(t.title)}</span>
+      <span class="hwcourse">${esc(t.course_name)}</span>
+      <span class="badges">${badges.join('')}</span>
+    </div>
+    <div class="hwbody">${body}</div>
+  </div>`;
+}
+
+function qBlock(q) {
+  const head = `<div class="qhead">
+      <span class="qno">第 ${esc(q.number == null ? '?' : q.number)} 题</span>
+      <span class="qtype">${esc(q.typename || '未知题型')}</span>
+      ${q.score ? `<span class="qscore">${esc(q.score)} 分</span>` : ''}
+    </div>`;
+
+  let html = `<div class="q">${head}`;
+  if (q.title) html += `<div class="qtitle">${esc(q.title)}</div>`;
+
+  const secs = q.sections || {};
+  const skip = new Set(['_intro', q.title]);
+  // 先放 _intro / 与标题同名的那节（正文），再放其余小节
+  Object.keys(secs).forEach((name) => {
+    const body = secs[name];
+    if (!body) return;
+    if (skip.has(name)) {
+      html += `<div class="sec"><div class="v">${esc(body)}</div></div>`;
+      return;
+    }
+    const isCode = name.indexOf('示例') === 0 || name.indexOf('样例') === 0;
+    html += `<div class="sec"><div class="k">${esc(name)}</div>` +
+            (isCode ? `<pre class="code">${esc(body)}</pre>` : `<div class="v">${esc(body)}</div>`) +
+            `</div>`;
+  });
+
+  if ((q.options || []).length) {
+    html += `<div class="sec"><div class="k">选项</div><ul class="opts">` +
+            q.options.map(o => `<li>${esc(o)}</li>`).join('') + `</ul></div>`;
+  }
+
+  if (q.code_template) {
+    html += `<div class="sec"><div class="k">代码模板（要在这个基础上补代码）</div>` +
+            `<pre class="code">${esc(q.code_template)}</pre></div>`;
+  }
+
+  const tags = [`作答方式：${esc(q.answer_kind || '未知')}`];
+  if (q.need_upload) tags.push('要交附件');
+  if (q.language) tags.push('语言编号 ' + esc(q.language));
+  tags.push(`<button class="mini" data-copy="${esc(mdQuestion(q))}">复制本题 Markdown</button>`);
+  if ((q.warnings || []).length) tags.push(`<span class="warn">⚠️ ${esc(q.warnings.join('；'))}</span>`);
+  html += `<div class="qtags">${tags.join('<span>　·　</span>')}</div></div>`;
+  return html;
+}
+
+/* ── 复制用的 Markdown ──────────────────────────────── */
+function mdQuestion(q) {
+  let out = '';
+  if (q.section) out += `## ${q.section}\n\n`;
+  out += `### 第 ${q.number} 题（${q.typename}${q.score ? '，' + q.score + '分' : ''}）\n\n`;
+  if (q.title) out += `**${q.title}**\n\n`;
+  const secs = q.sections || {};
+  Object.keys(secs).forEach(name => {
+    const body = secs[name];
+    if (!body) return;
+    if (name === '_intro' || name === q.title) { out += body + '\n\n'; return; }
+    const isCode = name.indexOf('示例') === 0;
+    out += `#### ${name}\n\n` + (isCode ? '```\n' + body + '\n```' : body) + '\n\n';
+  });
+  if ((q.options || []).length) out += q.options.map(o => '- ' + o).join('\n') + '\n\n';
+  if (q.code_template) out += '#### 代码模板\n\n```\n' + q.code_template + '\n```\n\n';
+  return out;
+}
+
+function mdFor(t) {
+  let out = `# ${t.course_name} · ${t.title}\n\n- 状态：${t.state_text || ''}\n- 剩余：${t.remain_text || ''}\n- 原页面：${t.url}\n\n`;
+  (t.questions || []).forEach(q => { out += mdQuestion(q) + '\n'; });
+  return out;
+}
+
+async function copy(btn, text) {
+  const old = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = '✓ 已复制';
+  } catch (e) {
+    btn.textContent = '复制失败（手动选中吧）';
+  }
+  setTimeout(() => { btn.textContent = old; }, 1500);
+}
+
+/* ── 「去问 AI」快捷入口 ───────────────────────────────
+   只做两件事：把题目复制到剪贴板、让后端用系统浏览器打开 AI 网页。
+   ⚠️ 不生成任何内容 —— 题目是你自己发出去的，那边的回答和本程序无关。 */
+const AI_SITES = {
+  deepseek: { label: 'DeepSeek', url: 'https://chat.deepseek.com/' },
+  qianwen:  { label: '千问', url: 'https://www.qianwen.com/' },
+  glm:      { label: '智谱清言', url: 'https://chatglm.cn/' },
+};
+let AI_OK = false;
+
+/* ⚠️ 这个探测是**必须的**，别再省：
+   界面窗口里的网页是每次打开时从磁盘读的，但服务端路由是程序启动时载入内存的。
+   加了新接口却没重启的话，按钮看得见、点了没反应 —— 而用户完全不知道为什么。
+   （2026-10-02 因为这个被问过两次：先 /tasks 404，后 /api/ai-sites 404。） */
+async function probeAI() {
+  try { AI_OK = (await fetch('/api/ai-sites')).ok; } catch (e) { AI_OK = false; }
+  const bar = $('warnbar');
+  if (AI_OK) {
+    bar.style.display = 'none';
+  } else {
+    bar.style.display = 'block';
+    bar.innerHTML = '<b>「去问 AI」和「过验证码」现在用不了：运行中的界面还是更新前的旧程序。</b><br>'
+      + '窗口里的网页是每次打开时从磁盘读的（所以按钮已经显示在上面了），'
+      + '但服务端的新接口要程序重启才会载入。<br>'
+      + '<b>关掉这个窗口、重新双击桌面的「学习通作业助手」图标</b>'
+      + ' —— 不用重新登录。'
+      + '只有老版本才需要手动双击 <code>重启界面.bat</code>。';
+  }
+  document.querySelectorAll('button.ai').forEach(b => { b.disabled = !AI_OK; });
+  $('ub').disabled = !AI_OK;
+}
+
+/* 当前范围的题目：全部，或只看某一份作业（点了课程标签） */
+function scopeTasks() {
+  return ((RESULT && RESULT.tasks) || []).filter(t => !COURSE || t.course_name === COURSE);
+}
+
+/* 打包内容走**后端**生成（src/pack.py），不在前端拼 ——
+   这样「给 AI 的文档」和「下载下来的 .md」永远是同一份东西，
+   不会出现前端拼的和后端导出的不一样。 */
+async function fetchPack() {
+  const q = COURSE ? ('?course=' + encodeURIComponent(COURSE)) : '?';
+  let r;
+  try { r = await fetch('/api/tasks/pack' + q); } catch (e) { return { error: String(e) }; }
+  if (!r.ok) {
+    let msg = 'HTTP ' + r.status;
+    try { const j = await r.json(); msg = j.error || msg; } catch (e) { /* 非 JSON */ }
+    return { error: msg };
+  }
+  return { text: await r.text() };
+}
+
+function scopeName() {
+  const tasks = scopeTasks();
+  if (!tasks.length) return '';
+  return COURSE ? (COURSE + ' · ' + tasks[0].title) : ('全部待办作业（' + tasks.length + ' 份）');
+}
+
+/* 「一键打包并粘贴给 AI」+ 三个单个 AI 按钮，都走这里。
+   key 为 null = 不打开任何网页，只复制（pkCopy 用）。 */
+async function askAI(key, btn) {
+  const tasks = scopeTasks();
+  if (!tasks.length) {
+    alert('还没有题目内容 —— 先点上面的「一键抓取全部待办题目」抓一次。');
+    return;
+  }
+  if (key && !AI_OK) { probeAI(); return; }
+
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '打包中…';
+
+  const got = await fetchPack();
+  if (got.error) {
+    btn.textContent = '打包失败';
+    alert('打包失败：' + got.error);
+    setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 1800);
+    return;
+  }
+  const md = got.text;
+
+  let copied = false;
+  try { await navigator.clipboard.writeText(md); copied = true; } catch (e) { copied = false; }
+
+  let opened = false, why = '';
+  if (key) {
+    const site = AI_SITES[key];
+    try {
+      const r = await (await fetch('/api/open-url', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: site.url })
+      })).json();
+      opened = !!r.ok;
+      why = r.error || '';
+    } catch (e) { opened = false; why = String(e); }
+  }
+
+  if (key && opened && copied) btn.textContent = '✓ 已复制 ' + md.length + ' 字，网页已开 → Ctrl+V';
+  else if (copied) btn.textContent = '✓ 已复制 ' + md.length + ' 字' + (key ? '（网页没打开，自己去 ' + AI_SITES[key].label + '）' : '');
+  else if (opened) btn.textContent = '网页已打开（复制失败，用「下载成文档」）';
+  else btn.textContent = key ? ('失败：' + (why || '未知')) : '复制失败';
+  setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 3200);
+}
+
+/* 「下载成文档」：直接吃后端的 Content-Disposition */
+$('pkDownload').onclick = function () {
+  if (!scopeTasks().length) {
+    alert('还没有题目内容 —— 先点上面的「一键抓取全部待办题目」抓一次。');
+    return;
+  }
+  const q = COURSE ? ('?course=' + encodeURIComponent(COURSE)) : '?';
+  window.location.href = '/api/tasks/pack' + q;
+};
+
+/* 「存到 data\题目\」：让后端落盘，返回真实路径 */
+$('pkSave').onclick = async function () {
+  const btn = this;
+  const tasks = scopeTasks();
+  if (!tasks.length) {
+    alert('还没有题目内容 —— 先点上面的「一键抓取全部待办题目」抓一次。');
+    return;
+  }
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '保存中…';
+  const q = (COURSE ? ('?course=' + encodeURIComponent(COURSE) + '&') : '?') + 'save=1';
+  try {
+    const d = await (await fetch('/api/tasks/pack' + q)).json();
+    if (d.ok) {
+      btn.textContent = '✓ 已存到 data\\题目\\';
+      $('pkInfo').textContent = '已保存：' + d.saved + '（' + d.tasks + ' 份，' + d.chars + ' 字）';
+    } else {
+      btn.textContent = '保存失败';
+      $('pkInfo').textContent = d.error || '';
+    }
+  } catch (e) {
+    btn.textContent = '保存失败';
+    $('pkInfo').textContent = String(e);
+  }
+  setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 3000);
+};
+
+/* ── 过验证码（跟主界面同一个后端接口）─────────────────
+   为什么不做网络轮询：风控期间每隔几秒再发请求等于往枪口上撞。
+   后端读的是浏览器当前页面的 DOM，这里只负责显示进度。 */
+let UB_TIMER = null;
+
+$('ub').onclick = function () {
+  const self = this;
+  self.disabled = true;
+  $('ubMsg').textContent = '正在启动浏览器…';
+  fetch('/api/unblock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.started) $('ubMsg').textContent = '已经有一个在跑了，等它跑完。';
+      clearInterval(UB_TIMER);
+      UB_TIMER = setInterval(() => {
+        fetch('/api/unblock/state').then(r => r.json()).then(s => {
+          $('ubMsg').textContent = s.message || '';
+          if (!s.running) { clearInterval(UB_TIMER); UB_TIMER = null; self.disabled = false; }
+        }).catch(() => {});
+      }, 1000);
+    })
+    .catch(e => { $('ubMsg').textContent = '启动失败：' + e; self.disabled = false; });
+};
+
+/* ── 启动 ───────────────────────────────────────────── */
+$('go').onclick = start;
+document.querySelectorAll('button.ai').forEach(btn => {
+  btn.onclick = () => askAI(btn.dataset.ai, btn);
+});
+/* 「一键打包并粘贴给 AI」= 打包 + 复制，但不指定站点。
+   默认打开 DeepSeek（最常用）——想换别的就用右边那三个按钮。 */
+$('pkSend').onclick = function () { askAI('deepseek', this); };
+$('pkCopy').onclick = function () { askAI(null, this); };
+
+/* 清理缓存：题目页只放个快捷入口，走安全档。
+   要挑档位 / 看明细的话去主界面（那边有完整弹窗）。
+   ⚠️ 清理会关掉整个界面窗口再重开，所以点完这里就"没了"是正常的。 */
+$('cl').onclick = async function () {
+  const self = this;
+  if (!confirm('清理缓存？\n\n'
+      + '会清掉：界面窗口的浏览器缓存（现在约 480 MB）。\n'
+      + '不会碰：登录态、已扫出来的作业、抓下来的题目。\n\n'
+      + '界面会关闭并自动重新打开，几秒后见。')) return;
+  self.disabled = true;
+  self.textContent = '正在清理…';
+  try {
+    const r = await fetch('/api/clean-cache', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ include_optional: false })
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      alert(d.error || '启动清理失败。');
+      self.disabled = false;
+      self.textContent = '清理缓存';
+      return;
+    }
+  } catch (e) {
+    /* 窗口被清理流程关掉了，请求被掐断 —— 正常，不用报错 */
+  }
+};
+
+probeAI();
+loadIndex();
+fetch('/api/tasks/state').then(r => r.json()).then(s => {
+  if (s.running) { $('prog').classList.add('show'); $('go').disabled = true; poll(); }
+}).catch(() => {});
+</script>
+</body>
+</html>

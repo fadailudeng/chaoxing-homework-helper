@@ -1,0 +1,18 @@
+# 统一换行符，免得 Windows 上每次 git 操作都刷一屏 CRLF 警告，
+# 也免得 Linux/macOS 上 clone 下来脚本换行符不对。
+
+# 文本文件一律在仓库里用 LF 存储
+* text=auto eol=lf
+
+# .bat 必须保留 CRLF —— cmd.exe 对 LF 换行的批处理解析不可靠
+*.bat text eol=crlf
+
+# 二进制文件别动
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.mp4 binary
+*.zip binary

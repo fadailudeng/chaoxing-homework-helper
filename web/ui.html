@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>学习通作业助手</title>
+<link rel="icon" href="/icon.ico">
+<style>
+  :root{
+    --bg:#eef2f7; --card:#fff; --line:#dfe5ec; --text:#1f2328; --muted:#6b7280;
+    --accent:#2f6fbd; --accent-dark:#25589a;
+    --todo:#d93025; --peer:#7c3aed; --grading:#d97706; --done:#188038; --unknown:#9ca3af;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "Microsoft YaHei UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:16px 16px 48px}
+
+  /* ── 顶栏 ── */
+  header{display:flex;align-items:center;gap:14px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:14px 18px;flex-wrap:wrap}
+  header img{width:46px;height:46px;flex:0 0 46px}
+  .brand h1{margin:0;font-size:17px;font-weight:700}
+  .brand p{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  button{font-family:inherit;font-size:14px;border-radius:9px;padding:9px 20px;
+    border:1px solid var(--line);background:#fff;color:var(--text);cursor:pointer}
+  /* 顶栏这几个按钮多了之后会在窄窗口下折行、把「清理缓存」切成两行 ——
+     nowrap 让每个按钮自成一块，宁可整体换行也不要字被劈开 */
+  header button{white-space:nowrap;padding:8px 14px;font-size:13.5px}
+  header .brand{min-width:0}
+  button:hover{background:#f6f8fb}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{background:var(--accent-dark)}
+  button:disabled{opacity:.55;cursor:default}
+  .scope{font-size:12.5px;color:var(--muted);margin-right:10px;white-space:nowrap}
+
+  /* ── 选课弹窗 ── */
+  .modal{display:none;position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:50;
+    align-items:center;justify-content:center;padding:24px}
+  .modal.show{display:flex}
+  .mbox{background:#fff;border-radius:14px;width:100%;max-width:740px;max-height:84vh;
+    display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 48px rgba(15,23,42,.3)}
+  .mhead{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .mhead b{font-size:15px}
+  .mhead .muted{color:var(--muted);font-size:12.5px}
+  .mhead .x{margin-left:auto;border:0;background:transparent;font-size:22px;line-height:1;
+    color:var(--muted);cursor:pointer;padding:0 4px}
+  .mtools{display:flex;gap:8px;flex-wrap:wrap;padding:10px 18px;
+    border-bottom:1px solid var(--line);align-items:center}
+  .mtools input{flex:1;min-width:150px;padding:7px 10px;border:1px solid var(--line);
+    border-radius:8px;font-family:inherit;font-size:13px}
+  .mtools input:focus{outline:none;border-color:var(--accent)}
+  .mtools button{padding:6px 12px;font-size:12.5px}
+  .mlist{overflow:auto;padding:6px 10px;flex:1}
+  .prow{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer}
+  .prow:hover{background:#f7f9fc}
+  .prow.on{background:#f0f6ff}
+  .prow input{width:16px;height:16px;flex:0 0 16px;cursor:pointer}
+  .pname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ptea{color:var(--muted);font-size:12.5px;max-width:170px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .ptag{font-size:11.5px;padding:2px 7px;border-radius:999px;background:#f1f5f9;
+    color:var(--muted);white-space:nowrap}
+  .ptag.todo{background:#fdecea;color:var(--todo);font-weight:600}
+  .ptag.err{background:#fff7ed;color:#c2410c}
+  .mpad{padding:28px;text-align:center;color:var(--muted)}
+  .mspeed{display:flex;gap:8px;flex-wrap:wrap;padding:10px 18px;
+    border-top:1px solid var(--line);align-items:center}
+  .mspeed .sbtn{border:1px solid var(--line);background:#fff;border-radius:8px;
+    padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--muted);font-family:inherit}
+  .mspeed .sbtn:hover{border-color:#cbd5e1}
+  .mspeed .sbtn.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .mfoot{display:flex;gap:8px;align-items:center;padding:12px 18px;border-top:1px solid var(--line)}
+  .mfoot .muted{margin-right:auto;color:var(--muted);font-size:12.5px}
+
+  /* ── 清理缓存弹窗 ── */
+  .mbody{padding:14px 18px}
+  .mbody .clh4{margin:16px 0 6px;font-size:13px;color:var(--muted);font-weight:600}
+  .clrow{display:flex;align-items:baseline;gap:10px;padding:7px 10px;border-radius:8px;
+    background:#f8fafc;margin-bottom:6px}
+  .clrow .sz{font-variant-numeric:tabular-nums;font-weight:600;font-size:12.5px;
+    color:var(--accent-dark);flex:0 0 auto;min-width:74px}
+  .clrow .pn{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;flex:0 0 auto}
+  .clrow .wh{color:var(--muted);font-size:12px;flex:1;min-width:0}
+  /* 保护清单：id 是 clKeep（不是类），选择器别再写成 .clkeep —— 写错过一次 */
+  #clKeep{display:flex;flex-direction:column;gap:4px}
+  #clKeep span{font-size:12px;padding:4px 10px;border-radius:8px;background:#f0fdf4;
+    color:#166534;border:1px solid #bbf7d0;display:flex;gap:8px;align-items:baseline;
+    flex-wrap:wrap;word-break:break-all}
+  #clKeep span .kp{font-family:ui-monospace,Consolas,monospace;flex:0 0 auto}
+  #clKeep span .kl{color:#15803d;opacity:.85}
+  #clKeep span.miss{background:#f8fafc;color:var(--muted);border-color:var(--line)}
+  #clKeep span.miss .kl{color:var(--muted)}
+  label.opt{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);
+    cursor:pointer;margin-top:10px}
+  label.opt input{width:15px;height:15px;cursor:pointer}
+
+  /* ── 运行状态条 ── */
+  #runbar{display:none;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:12px 18px;margin-top:12px}
+  #runbar.show{display:block}
+  /* 过验证码的进度条：跟运行状态条同一套观感 */
+  #unblockbar{display:none;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:12px 18px;margin-top:12px}
+  #unblockbar.show{display:block}
+  .row{display:flex;align-items:center;gap:12px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:0 0 9px}
+  .dot.busy{background:var(--accent);animation:blink 1s infinite}
+  .dot.ok{background:var(--done)} .dot.err{background:var(--todo)}
+  @keyframes blink{50%{opacity:.25}}
+  .msg{font-size:13.5px}
+  .cnt{margin-left:auto;color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+  .bar{height:7px;border-radius:4px;background:#e8edf3;overflow:hidden;margin-top:10px}
+  .bar > i{display:block;height:100%;width:0;background:var(--accent);
+    border-radius:4px;transition:width .3s}
+  .logs{margin-top:10px;max-height:118px;overflow:auto;border-top:1px solid var(--line);
+    padding-top:8px;font:12px/1.7 Consolas,"Cascadia Mono",monospace;color:#4b5563}
+  .logs div{white-space:pre-wrap;word-break:break-all}
+  .logs .err{color:var(--todo)} .logs .ok{color:var(--done)}
+  .logs .warn{color:var(--grading)} .logs .muted{color:var(--muted)}
+
+  /* ── 摘要卡片 ── */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));
+    gap:10px;margin:14px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 14px}
+  .card .n{font-size:23px;font-weight:700;line-height:1.2}
+  .card .k{font-size:12px;color:var(--muted);margin-top:2px}
+  .card.todo .n{color:var(--todo)} .card.peer .n{color:var(--peer)}
+  .card.grading .n{color:var(--grading)} .card.done .n{color:var(--done)}
+  .card.expired .n{color:var(--unknown)}
+
+  /* ── 筛选 ── */
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .tab{border:1px solid var(--line);background:var(--card);border-radius:999px;
+    padding:5px 13px;cursor:pointer;font-size:13px;color:var(--muted);user-select:none}
+  .tab:hover{border-color:#cbd5e1}
+  .tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tab .c{opacity:.75;margin-left:4px}
+  .switch{margin-left:auto;display:flex;align-items:center;gap:6px;
+    color:var(--muted);font-size:13px;cursor:pointer;user-select:none}
+
+  /* ── 课程列表 ── */
+  .course{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    margin-bottom:10px;overflow:hidden}
+  .chead{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none}
+  .chead:hover{background:#fafbfc}
+  .arrow{color:var(--muted);transition:transform .15s;font-size:11px;width:10px}
+  .course.open .arrow{transform:rotate(90deg)}
+  .cname{font-weight:600}
+  .cteacher{color:var(--muted);font-size:12.5px}
+  .badges{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .badge{font-size:12px;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:var(--muted)}
+  .badge.todo{background:#fdecea;color:var(--todo);font-weight:600}
+  .badge.err{background:#fff7ed;color:#c2410c}
+  .items{display:none;border-top:1px solid var(--line)}
+  .course.open .items{display:block}
+  .item{display:flex;align-items:center;gap:10px;padding:10px 14px 10px 12px;
+    border-bottom:1px solid #f3f4f6;text-decoration:none;color:inherit}
+  .item:last-child{border-bottom:0}
+  .item:hover{background:#f8fafc}
+  .dotbar{width:4px;height:32px;border-radius:2px;flex:0 0 4px;background:var(--unknown)}
+  .item.todo .dotbar{background:var(--todo)} .item.peer .dotbar{background:var(--peer)}
+  .item.grading .dotbar{background:var(--grading)} .item.done .dotbar{background:var(--done)}
+  .title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item.done .title{color:var(--muted)}
+  .tag{font-size:12px;padding:2px 8px;border-radius:4px;white-space:nowrap;font-weight:600}
+  .item.todo .tag{background:#fdecea;color:var(--todo)}
+  .item.peer .tag{background:#f3e8ff;color:var(--peer)}
+  .item.grading .tag{background:#fef3c7;color:#b45309}
+  .item.done .tag{background:#dcfce7;color:var(--done)}
+  .item.unknown .tag{background:#f1f5f9;color:var(--muted)}
+  .time{font-size:12.5px;color:var(--muted);white-space:nowrap;min-width:108px;text-align:right}
+  .time.urgent{color:var(--todo);font-weight:700}
+  .time.soon{color:var(--grading);font-weight:600}
+  .time.over{color:var(--unknown);text-decoration:line-through}
+  .lbl{font-size:11px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--muted)}
+
+  .empty{background:var(--card);border:1px dashed var(--line);border-radius:12px;
+    padding:52px 24px;text-align:center;color:var(--muted)}
+  .empty b{display:block;color:var(--text);font-size:15px;margin-bottom:6px}
+  .warnbar{background:#fff4f3;border:1px solid #f6c9c4;border-left:4px solid var(--todo);
+    border-radius:10px;padding:12px 16px;margin-bottom:14px;color:#8a2018;font-size:13.5px;line-height:1.8}
+  .warnbar b{color:var(--todo)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="/icon.png" alt="">
+    <div class="brand">
+      <h1>学习通作业助手</h1>
+      <p>一键扫描所有课程的作业 · 按课程分组 · 标出还没做的</p>
+    </div>
+    <div class="spacer"></div>
+    <span class="scope" id="scopeHint"></span>
+    <button id="btnUnblock" title="被要求输图片验证码时点这个：程序会把验证码页面直接打开在浏览器里">过验证码</button>
+    <button id="btnTasks" title="把待办作业的题目抓下来看">作业题目</button>
+    <button id="btnClean" title="清掉界面窗口的浏览器缓存（会自己重开窗口，登录态和已扫数据不动）">清理缓存</button>
+    <button id="btnPick">选择课程</button>
+    <button id="btnScan" class="primary">开始扫描作业</button>
+  </header>
+
+  <section id="unblockbar">
+    <div class="row">
+      <span class="dot" id="ubDot"></span>
+      <span class="msg" id="ubMsg">正在检查风控状态…</span>
+    </div>
+    <div class="logs" id="ubLogs"></div>
+  </section>
+
+  <section id="runbar">
+    <div class="row">
+      <span class="dot" id="dot"></span>
+      <span class="msg" id="msg">准备就绪</span>
+      <span class="cnt" id="cnt"></span>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="logs" id="logs"></div>
+  </section>
+
+  <div id="board"></div>
+</div>
+
+<!-- 选课弹窗 -->
+<div id="picker" class="modal">
+  <div class="mbox">
+    <div class="mhead">
+      <b>选择要扫描的课程</b>
+      <span class="muted" id="pkCount"></span>
+      <button class="x" id="pkClose" title="关闭">×</button>
+    </div>
+    <div class="mtools">
+      <input id="pkSearch" placeholder="搜索课程名 / 老师…">
+      <button id="pkAll">全选</button>
+      <button id="pkNone">全不选</button>
+      <button id="pkTodo">只勾有待办的</button>
+      <button id="pkRefresh" title="重新向学习通拉一次课程列表">重新读取</button>
+    </div>
+    <div class="mlist" id="pkList"></div>
+    <div class="mspeed" id="pkSpeeds"></div>
+    <div class="mfoot">
+      <span class="muted" id="pkHint"></span>
+      <button id="pkCancel">取消</button>
+      <button id="pkSave" class="primary">保存并开始扫描</button>
+    </div>
+  </div>
+</div>
+
+<!-- 清理缓存弹窗 -->
+<div id="cleaner" class="modal">
+  <div class="mbox" style="max-width:620px">
+    <div class="mhead">
+      <b>清理缓存</b>
+      <span class="muted" id="clSize"></span>
+      <button class="x" id="clClose" title="关闭">×</button>
+    </div>
+    <div class="mbody" id="clBody" style="overflow:auto">
+      <p class="muted" id="clIntro">正在统计…</p>
+      <div id="clList"></div>
+      <h4 class="clh4">不会被碰的东西</h4>
+      <div id="clKeep"></div>
+      <label class="opt" id="clOptWrap" style="display:none">
+        <input type="checkbox" id="clOpt"> 连调试残留一起清（原始响应 HTML、排查用的截图）
+      </label>
+      <p class="muted" id="clNote"></p>
+    </div>
+    <div class="mfoot">
+      <span class="muted" id="clHint"></span>
+      <button id="clCancel">取消</button>
+      <button id="clGo" class="primary">开始清理</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+var STATE_TEXT = {todo:'未交', peer:'待互评', grading:'待批阅', done:'已完成', unknown:'未知'};
+var ORDER = {todo:0, peer:1, grading:2, unknown:3, done:4};
+
+var ALL = [];
+var filter = 'all';
+var onlyPending = false;
+var shownStamp = null;
+
+var pending = function (h) {
+  return (h.state === 'todo' || h.state === 'peer') && !h.is_expired;
+};
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function timeLabel(h) {
+  if (h.state === 'done') return {text: '', cls: ''};
+  if (h.is_expired) return {text: '已过期', cls: 'over'};
+  if (h.remain_hours === null || h.remain_hours === undefined) {
+    return {text: pending(h) ? '无截止时间' : '', cls: ''};
+  }
+  var hr = h.remain_hours, text, cls = '';
+  if (hr >= 24) {
+    var d = Math.floor(hr / 24);
+    text = '剩余 ' + d + ' 天 ' + Math.round(hr - d * 24) + ' 小时';
+  } else if (hr >= 1) {
+    text = '剩余 ' + Math.round(hr) + ' 小时';
+  } else {
+    text = '剩余 ' + Math.max(1, Math.round(hr * 60)) + ' 分钟';
+  }
+  if (hr <= 24) cls = 'urgent'; else if (hr <= 72) cls = 'soon';
+  return {text: text, cls: cls};
+}
+
+function counts() {
+  var n = {all: ALL.length, todo: 0, peer: 0, grading: 0, done: 0, pending: 0, expired: 0};
+  ALL.forEach(function (h) {
+    if (n[h.state] !== undefined) n[h.state]++;
+    if (pending(h)) n.pending++;
+    if (h.is_expired && h.state !== 'done') n.expired++;
+  });
+  return n;
+}
+
+function renderCards(n) {
+  var defs = [
+    ['todo', n.pending, '需要动手（未交 + 待互评）'], ['todo', n.todo, '未交'],
+    ['peer', n.peer, '待互评'], ['grading', n.grading, '待批阅'],
+    ['done', n.done, '已完成'], ['expired', n.expired, '已过期未完成'],
+    ['', n.all, '作业总数']
+  ];
+  return '<div class="cards">' + defs.map(function (d) {
+    return '<div class="card ' + d[0] + '"><div class="n">' + d[1] + '</div>'
+      + '<div class="k">' + d[2] + '</div></div>';
+  }).join('') + '</div>';
+}
+
+function renderTabs(n) {
+  var defs = [
+    ['all', '全部', n.all], ['pending', '需动手', n.pending], ['todo', '未交', n.todo],
+    ['peer', '待互评', n.peer], ['grading', '待批阅', n.grading],
+    ['done', '已完成', n.done], ['expired', '已过期', n.expired]
+  ];
+  var html = defs.map(function (d) {
+    return '<div class="tab' + (filter === d[0] ? ' on' : '') + '" data-f="' + d[0] + '">'
+      + d[1] + '<span class="c">' + d[2] + '</span></div>';
+  }).join('');
+  html += '<label class="switch"><input type="checkbox" id="onlyPending"'
+    + (onlyPending ? ' checked' : '') + '> 只看还需要动手的</label>';
+  return '<div class="tabs">' + html + '</div>';
+}
+
+function matches(h) {
+  if (onlyPending) return pending(h);
+  if (filter === 'all') return true;
+  if (filter === 'pending') return pending(h);
+  if (filter === 'expired') return h.is_expired && h.state !== 'done';
+  return h.state === filter;
+}
+
+function renderCourses(data) {
+  var groups = [];
+  (data.courses || []).forEach(function (c) {
+    var hs = (c.homeworks || []).filter(matches).slice().sort(function (a, b) {
+      var d = (ORDER[a.state] === undefined ? 9 : ORDER[a.state])
+            - (ORDER[b.state] === undefined ? 9 : ORDER[b.state]);
+      if (d !== 0) return d;
+      var ra = (a.remain_hours === null || a.remain_hours === undefined) ? 1e9 : a.remain_hours;
+      var rb = (b.remain_hours === null || b.remain_hours === undefined) ? 1e9 : b.remain_hours;
+      return ra - rb;
+    });
+    if (hs.length || c.error) groups.push({course: c, items: hs});
+  });
+
+  if (!groups.length) {
+    return '<div class="empty">这个筛选下没有作业。<br>换个标签看看，或点上面的「全部」。</div>';
+  }
+
+  return groups.map(function (g) {
+    var c = g.course;
+    var pend = g.items.filter(pending).length;
+    var badges = [];
+    if (pend) badges.push('<span class="badge todo">待办 ' + pend + '</span>');
+    badges.push('<span class="badge">' + g.items.length + ' 条</span>');
+    if (c.error) badges.push('<span class="badge err">抓取异常</span>');
+
+    var rows = g.items.map(function (h) {
+      var t = timeLabel(h);
+      var peerTag = h.is_peer ? '<span class="lbl">互评</span>' : '';
+      var tagText = (h.is_expired && h.state !== 'done')
+        ? '未交·已过期' : (STATE_TEXT[h.state] || h.state);
+      return '<a class="item ' + h.state + '" href="' + esc(h.url) + '" target="_blank" rel="noopener">'
+        + '<span class="dotbar"></span>'
+        + '<span class="title" title="' + esc(h.title) + '">' + esc(h.title) + '</span>'
+        + peerTag
+        + '<span class="tag">' + tagText + '</span>'
+        + '<span class="time ' + t.cls + '">' + t.text + '</span>'
+        + '</a>';
+    }).join('');
+
+    var errRow = c.error
+      ? '<div class="item"><span class="time" style="min-width:auto;text-align:left">'
+        + esc(c.error) + '</span></div>'
+      : '';
+
+    return '<div class="course' + ((pend || g === groups[0]) ? ' open' : '') + '">'
+      + '<div class="chead"><span class="arrow">▶</span>'
+      + '<span class="cname">' + esc(c.name) + '</span>'
+      + (c.from_cache ? '<span class="lbl" title="这门课本次没扫，用的是上次的结果">上次</span>' : '')
+      + (c.teacher ? '<span class="cteacher">' + esc(c.teacher) + '</span>' : '')
+      + '<span class="badges">' + badges.join('') + '</span></div>'
+      + '<div class="items">' + rows + errRow + '</div></div>';
+  }).join('');
+}
+
+function renderBoard(data) {
+  ALL = [];
+  (data.courses || []).forEach(function (c) {
+    (c.homeworks || []).forEach(function (h) {
+      ALL.push(Object.assign({}, h, {course: c.name}));
+    });
+  });
+
+  var n = counts();
+  var s = data.summary || {};
+
+  var warn = '';
+  if (data.aborted_reason) {
+    warn = '<div class="warnbar"><b>⚠ 上次扫描被平台风控中断</b>：'
+      + esc(data.aborted_reason) + '，只扫完前 ' + (data.aborted_at || 0) + ' 门。<br>'
+      + '恢复办法：点右上角 <b>「过验证码」</b> —— 程序会把<b>验证码页面本身</b>直接打开在浏览器窗口里，'
+      + '你输完它自己就会发现，然后回来重新点「开始扫描作业」。<br>'
+      + '<span class="muted">（别去开学习通首页 —— 首页本来就不受限、不会弹验证码，白忙一场。这是坑 5 的教训。）</span></div>';
+  }
+
+  var foot = '<div style="color:var(--muted);font-size:12px;margin-top:18px;line-height:1.9">'
+    + '看板共 ' + (s.courses_total || 0) + ' 门课程：本次扫了 ' + (s.courses_scanned || 0) + ' 门'
+    + (s.courses_cached ? '，沿用上次 ' + s.courses_cached + ' 门' : '')
+    + '　·　扫描于 ' + esc(data.scanned_at || '未知')
+    + '<br>标「上次」的课本次没扫，显示的是上一次的结果（想刷新它，下次把它一起勾上）。'
+    + '<br>点作业名会跳转到学习通对应页面（若提示登录，说明该浏览器还没登录过学习通）。'
+    + '</div>';
+
+  document.getElementById('board').innerHTML =
+    warn + renderCards(n) + renderTabs(n) + renderCourses(data) + foot;
+
+  document.querySelectorAll('.tab').forEach(function (el) {
+    el.onclick = function () {
+      filter = el.dataset.f;
+      onlyPending = false;
+      renderBoard(data);
+    };
+  });
+  var cb = document.getElementById('onlyPending');
+  if (cb) cb.onchange = function () {
+    onlyPending = cb.checked;
+    filter = 'all';
+    renderBoard(data);
+  };
+  document.querySelectorAll('.chead').forEach(function (el) {
+    el.onclick = function () { el.parentNode.classList.toggle('open'); };
+  });
+}
+
+function renderEmpty() {
+  document.getElementById('board').innerHTML =
+    '<div class="empty"><b>还没有数据</b>'
+    + '点右上角「开始扫描作业」抓取你所有课程的作业。<br>'
+    + '首次使用会弹出一个浏览器窗口，请在里面登录学习通（密码不经过本程序）。</div>';
+}
+
+/* ── 状态轮询 ── */
+var lastLogKey = '';
+
+function renderRun(s) {
+  var bar = document.getElementById('runbar');
+  bar.classList.add('show');
+
+  var dot = document.getElementById('dot');
+  var bad = (s.phase === 'error' || s.phase === 'aborted');
+  dot.className = 'dot' + (s.running ? ' busy'
+    : (s.phase === 'done' ? ' ok' : (bad ? ' err' : '')));
+
+  document.getElementById('msg').textContent = s.message || '';
+  document.getElementById('cnt').textContent =
+    (s.total ? s.done + ' / ' + s.total + ' 门课' : '');
+
+  var pct = s.total ? Math.round(s.done / s.total * 100) : 0;
+  document.getElementById('bar').style.width = (s.running ? pct : (s.phase === 'done' ? 100 : 0)) + '%';
+
+  var key = s.log.length + '|' + (s.log.length ? s.log[s.log.length - 1].t + s.log[s.log.length - 1].m : '');
+  if (key !== lastLogKey) {
+    lastLogKey = key;
+    var box = document.getElementById('logs');
+    box.innerHTML = s.log.map(function (l) {
+      return '<div class="' + (l.tag || '') + '">' + l.t + '  ' + esc(l.m) + '</div>';
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  document.getElementById('btnScan').disabled = !!s.running;
+  document.getElementById('btnScan').textContent = s.running ? '扫描中…' : '开始扫描作业';
+}
+
+var lastDataStamp = null;
+
+function poll() {
+  fetch('/api/state').then(function (r) { return r.json(); }).then(function (s) {
+    renderRun(s);
+    if (s.data) {
+      if (s.data.scanned_at !== lastDataStamp) {
+        lastDataStamp = s.data.scanned_at;
+        renderBoard(s.data);
+      }
+    } else if (lastDataStamp === null) {
+      renderEmpty();
+      lastDataStamp = '';
+    }
+  }).catch(function () { /* 服务可能还没起来，下一轮再试 */ });
+  setTimeout(poll, 1200);
+}
+
+/* ── 选课弹窗 ── */
+var picker = {courses: [], selected: new Set(), loaded: false, speeds: [], speed: 'standard'};
+
+function setScopeHint(n) {
+  document.getElementById('scopeHint').textContent = '将扫描 ' + n + ' 门';
+}
+
+function openPicker(force) {
+  document.getElementById('picker').classList.add('show');
+  var list = document.getElementById('pkList');
+  if (!picker.loaded || force) {
+    list.innerHTML = '<div class="mpad">正在读取课程列表…（首次可能要几秒）</div>';
+  }
+  fetch('/api/courses' + (force ? '?refresh=1' : '')).then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) {
+        list.innerHTML = '<div class="mpad">读取失败：' + esc(d.error || '未知错误')
+          + '<br><br>如果提示登录相关，先跑一次「登录学习通.bat」。</div>';
+        return;
+      }
+      picker.courses = d.courses || [];
+      picker.loaded = true;
+      picker.speeds = d.speeds || [];
+      picker.speed = d.speed || 'standard';
+      var sel = d.selected;
+      picker.selected = new Set((sel && sel.length)
+        ? sel.map(String)
+        : picker.courses.map(function (c) { return String(c.course_id); }));
+      renderPicker();
+      renderSpeeds();
+      setScopeHint(picker.selected.size);
+    })
+    .catch(function (e) {
+      list.innerHTML = '<div class="mpad">读取失败：' + esc(String(e)) + '</div>';
+    });
+}
+
+function closePicker() {
+  document.getElementById('picker').classList.remove('show');
+}
+
+function renderPicker() {
+  var kw = (document.getElementById('pkSearch').value || '').trim().toLowerCase();
+  var list = picker.courses.filter(function (c) {
+    if (!kw) return true;
+    return ((c.name || '') + ' ' + (c.teacher || '')).toLowerCase().indexOf(kw) >= 0;
+  });
+
+  document.getElementById('pkList').innerHTML = list.length ? list.map(function (c) {
+    var id = String(c.course_id);
+    var on = picker.selected.has(id);
+    var info;
+    if (c.last) {
+      if (c.last.error) {
+        info = '<span class="ptag err">上次抓取失败</span>';
+      } else if (c.last.pending) {
+        info = '<span class="ptag todo">待办 ' + c.last.pending + '</span>'
+             + '<span class="ptag">共 ' + c.last.total + ' 条</span>';
+      } else {
+        info = '<span class="ptag">' + c.last.total + ' 条作业</span>';
+      }
+    } else {
+      info = '<span class="ptag">还没扫过</span>';
+    }
+    return '<label class="prow' + (on ? ' on' : '') + '">'
+      + '<input type="checkbox" data-id="' + esc(id) + '"' + (on ? ' checked' : '') + '>'
+      + '<span class="pname">' + esc(c.name) + '</span>'
+      + '<span class="ptea">' + esc(c.teacher || '') + '</span>' + info + '</label>';
+  }).join('') : '<div class="mpad">没有匹配的课程</div>';
+
+  Array.prototype.forEach.call(document.querySelectorAll('#pkList input[type=checkbox]'), function (el) {
+    el.onchange = function () {
+      if (el.checked) picker.selected.add(el.dataset.id);
+      else picker.selected.delete(el.dataset.id);
+      el.parentNode.classList.toggle('on', el.checked);
+      updatePkCount();
+    };
+  });
+  updatePkCount();
+}
+
+function currentSpeed() {
+  var list = picker.speeds || [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === picker.speed) return list[i];
+  }
+  return {label: '标准', desc: '默认', sec_per_course: 1.9};
+}
+
+function renderSpeeds() {
+  var list = picker.speeds || [];
+  var box = document.getElementById('pkSpeeds');
+  if (!list.length) { box.innerHTML = ''; return; }
+  box.innerHTML = '<span class="muted">扫描速度：</span>' + list.map(function (s) {
+    return '<button class="sbtn' + (s.id === picker.speed ? ' on' : '') + '" data-s="'
+      + s.id + '" title="' + esc(s.desc) + '">' + esc(s.label) + '</button>';
+  }).join('');
+  Array.prototype.forEach.call(box.querySelectorAll('.sbtn'), function (el) {
+    el.onclick = function () { picker.speed = el.dataset.s; renderSpeeds(); updatePkCount(); };
+  });
+}
+
+function updatePkCount() {
+  var n = picker.selected.size;
+  document.getElementById('pkCount').textContent = '已选 ' + n + ' / ' + picker.courses.length + ' 门';
+  var opt = currentSpeed();
+  var secs = Math.round(n * (opt.sec_per_course || 1.9));
+  document.getElementById('pkHint').textContent = n
+    ? ('预计 ' + (secs < 60 ? secs + ' 秒' : (secs / 60).toFixed(1) + ' 分钟')
+       + '（' + opt.label + '：' + opt.desc + '）')
+    : '一门都没选，没法开始扫描';
+  document.getElementById('pkSave').disabled = n === 0;
+}
+
+/* 页面打开时把「将扫描 N 门」显示出来 */
+function refreshScope() {
+  fetch('/api/courses').then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.ok) return;
+    picker.courses = d.courses || [];
+    picker.loaded = true;
+    picker.speeds = d.speeds || [];
+    picker.speed = d.speed || 'standard';
+    var sel = d.selected;
+    picker.selected = new Set((sel && sel.length)
+      ? sel.map(String)
+      : picker.courses.map(function (c) { return String(c.course_id); }));
+    setScopeHint(picker.selected.size);
+  }).catch(function () {});
+}
+
+function startScan(payload) {
+  var req = {method: 'POST', headers: {'Content-Type': 'application/json'}};
+  req.body = payload ? JSON.stringify(payload) : '{}';
+  fetch('/api/scan', req).then(function () { poll0(); });
+}
+
+document.getElementById('btnPick').onclick = function () { openPicker(false); };
+document.getElementById('pkClose').onclick = closePicker;
+document.getElementById('pkCancel').onclick = closePicker;
+document.getElementById('pkRefresh').onclick = function () { openPicker(true); };
+document.getElementById('pkSearch').oninput = renderPicker;
+document.getElementById('pkAll').onclick = function () {
+  picker.courses.forEach(function (c) { picker.selected.add(String(c.course_id)); });
+  renderPicker();
+};
+document.getElementById('pkNone').onclick = function () { picker.selected.clear(); renderPicker(); };
+document.getElementById('pkTodo').onclick = function () {
+  picker.selected.clear();
+  picker.courses.forEach(function (c) {
+    if (c.last && c.last.pending) picker.selected.add(String(c.course_id));
+  });
+  renderPicker();
+};
+document.getElementById('pkSave').onclick = function () {
+  var ids = Array.from(picker.selected);
+  var speed = picker.speed;
+  closePicker();
+  startScan({course_ids: ids, speed: speed});
+};
+
+/* 主按钮：不传 course_ids ＝ 后端用上次保存的勾选（从没选过就是全扫） */
+document.getElementById('btnScan').onclick = function () { startScan({}); };
+// ⚠️ 「作业题目」里的网页是每次打开时**从磁盘读**的（所以按钮立刻可见），
+//    但服务端路由是程序**启动时载入内存**的 —— 在没重启的旧进程上点它会撞进 404。
+//    所以先探一下接口通不通：不通就直接告诉人家重启，别把人丢进没有退路的死胡同。
+document.getElementById('btnTasks').onclick = async function () {
+  var ok = false;
+  try { ok = (await fetch('/api/tasks')).ok; } catch (e) { ok = false; }
+  if (!ok) {
+    alert('「作业题目」需要重启界面才能用。\n\n'
+        + '原因：界面窗口里的网页是每次打开时从磁盘读的（所以按钮已经在了），\n'
+        + '但服务端的新路由是程序启动时载入内存的 —— 当前这个窗口还是更新前的旧程序。\n\n'
+        + '请关掉本窗口，重新双击桌面的「学习通作业助手」图标。不用重新登录。');
+    return;
+  }
+  location.href = '/tasks';
+};
+
+/* ── 清理缓存（不用再去文件夹双击 bat）──
+   这个按钮只做三件事：问后端「会清什么」→ 摊给用户看 → 确认后交给后端执行。
+   「清什么 / 保什么」全在 src/cleanup.py 的白名单和保护清单里，前端一行都不判断，
+   免得两边规则打架。 */
+var CL_SURVEY = null;
+
+function clRenderSurvey(info) {
+  var list = document.getElementById('clList');
+  var keep = document.getElementById('clKeep');
+  list.innerHTML = '';
+  if (!info.items.length) {
+    list.innerHTML = '<p class="muted">已经很干净了，没有可清的东西。</p>';
+  }
+  info.items.forEach(function (it) {
+    var row = document.createElement('div');
+    row.className = 'clrow';
+    var sz = document.createElement('span');
+    sz.className = 'sz';
+    sz.textContent = it.size_mb >= 0.1 ? it.size_mb.toFixed(1) + ' MB' : '<0.1 MB';
+    var pn = document.createElement('span');
+    pn.className = 'pn';
+    pn.textContent = it.path;
+    var wh = document.createElement('span');
+    wh.className = 'wh';
+    wh.textContent = it.why;
+    row.appendChild(sz); row.appendChild(pn); row.appendChild(wh);
+    list.appendChild(row);
+  });
+  keep.innerHTML = '';
+  info.protected.forEach(function (p) {
+    var s = document.createElement('span');
+    if (!p.exists) s.className = 'miss';
+    var kp = document.createElement('span');
+    kp.className = 'kp';
+    kp.textContent = p.path;
+    var kl = document.createElement('span');
+    kl.className = 'kl';
+    kl.textContent = p.label;
+    s.appendChild(kp); s.appendChild(kl);
+    keep.appendChild(s);
+  });
+  document.getElementById('clSize').textContent =
+    info.items.length ? '（可释放约 ' + info.total_mb.toFixed(1) + ' MB）' : '';
+  document.getElementById('clIntro').innerHTML =
+    '下面这些<b>只是浏览器的缓存和排查用的临时文件</b>，删掉不影响使用：';
+}
+
+async function openCleaner() {
+  document.getElementById('cleaner').classList.add('show');
+  document.getElementById('clList').innerHTML = '';
+  document.getElementById('clKeep').innerHTML = '';
+  document.getElementById('clIntro').textContent = '正在统计…';
+  document.getElementById('clSize').textContent = '';
+  document.getElementById('clHint').textContent = '';
+  document.getElementById('clNote').innerHTML =
+    '清理时界面窗口会<b>自动关掉再打开</b>（Edge 正占着那个目录，不关删不掉），'
+    + '所以点完之后如果窗口闪一下、进度条没了，是正常的。';
+  document.getElementById('clGo').disabled = false;
+  document.getElementById('clGo').textContent = '开始清理';
+  var opt = document.getElementById('clOpt');
+  opt.checked = false;
+  try {
+    var r = await fetch('/api/clean/survey');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    CL_SURVEY = await r.json();
+    clRenderSurvey(CL_SURVEY);
+    // 只有真的存在可选目标时才显示那个勾选框，免得凭空多一个没用的选项
+    document.getElementById('clOptWrap').style.display = 'flex';
+  } catch (e) {
+    document.getElementById('clIntro').innerHTML =
+      '读不到清理范围：' + e + '<br>这个界面可能是更新前的旧程序 —— 关掉窗口重新双击桌面图标。';
+    document.getElementById('clGo').disabled = true;
+  }
+}
+
+function closeCleaner() {
+  document.getElementById('cleaner').classList.remove('show');
+}
+
+document.getElementById('clClose').onclick = closeCleaner;
+document.getElementById('clCancel').onclick = closeCleaner;
+document.getElementById('cleaner').onclick = function (ev) {
+  if (ev.target === this) closeCleaner();
+};
+
+document.getElementById('btnClean').onclick = function () {
+  // 「有没有任务在跑」由后端判断（它同时看扫描 / 抓题 / 过验证码三个状态），
+  // 前端不重复实现一遍，免得两边判断不一致。
+  openCleaner();
+};
+
+document.getElementById('clGo').onclick = async function () {
+  var btn = this;
+  var opt = document.getElementById('clOpt').checked;
+  btn.disabled = true;
+  btn.textContent = '正在清理…';
+  document.getElementById('clHint').textContent =
+    '界面马上会关闭，几秒后自动重开 —— 登录态和已扫出来的作业都不动。';
+  try {
+    var r = await fetch('/api/clean-cache', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ include_optional: opt })
+    });
+    var d = await r.json();
+    if (!d.ok) {
+      document.getElementById('clHint').textContent = d.error || '启动清理失败。';
+      btn.disabled = false;
+      btn.textContent = '开始清理';
+      return;
+    }
+    document.getElementById('clHint').textContent = d.message || '正在清理…';
+  } catch (e) {
+    // 走到这里通常是：窗口已经被清理流程关掉了，请求被掐断。属正常。
+    document.getElementById('clHint').textContent = '界面正在关闭并清理…';
+  }
+};
+
+/* ── 过验证码（撞风控时点顶栏那个按钮，不用去文件夹双击 bat）──
+   流程：后端把「验证码页面本身」打开在浏览器窗口里（不是学习通首页 —— 首页不受限），
+   你输完提交，后端读浏览器当前 DOM 发现它跳走了就报成功。
+   ⚠️ 后端**不做网络轮询**：风控期间每隔几秒再发请求等于往枪口上撞。 */
+var UB_POLL = null;
+
+function ubRender(s) {
+  document.getElementById('unblockbar').classList.add('show');
+  document.getElementById('ubMsg').textContent = s.message || '';
+  document.getElementById('ubDot').className = 'dot' + (s.running ? ' busy'
+    : (s.phase === 'done' ? ' ok' : (s.phase === 'error' ? ' err' : '')));
+  var box = document.getElementById('ubLogs');
+  box.innerHTML = (s.log || []).map(function (l) {
+    return '<div><span class="muted">' + esc(l.t) + '</span> <span class="'
+      + esc(l.tag || '') + '">' + esc(l.m) + '</span></div>';
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function ubPoll() {
+  clearInterval(UB_POLL);
+  UB_POLL = setInterval(function () {
+    fetch('/api/unblock/state').then(function (r) { return r.json(); }).then(function (s) {
+      ubRender(s);
+      if (!s.running) {
+        clearInterval(UB_POLL); UB_POLL = null;
+        document.getElementById('btnUnblock').disabled = false;
+      }
+    }).catch(function () { /* 服务没应答就下一次再试 */ });
+  }, 1000);
+}
+
+document.getElementById('btnUnblock').onclick = function () {
+  var self = this;
+  self.disabled = true;
+  document.getElementById('unblockbar').classList.add('show');
+  document.getElementById('ubMsg').textContent = '正在启动浏览器…';
+  document.getElementById('ubDot').className = 'dot busy';
+  document.getElementById('ubLogs').innerHTML = '';
+  fetch('/api/unblock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.started) {
+        document.getElementById('ubMsg').textContent = '已经有一个在跑了，等它跑完（看下面的日志）。';
+      }
+      ubPoll();
+    })
+    .catch(function (e) {
+      document.getElementById('ubMsg').textContent = '启动失败：' + e;
+      self.disabled = false;
+    });
+};
+
+function poll0() { /* 立刻刷新一次，不等下一轮 */
+  fetch('/api/state').then(function (r) { return r.json(); }).then(renderRun).catch(function () {});
+}
+
+refreshScope();
+poll();
+</script>
+</body>
+</html>

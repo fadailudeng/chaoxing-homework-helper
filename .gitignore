@@ -1,0 +1,55 @@
+# ── 绝对不要上传（敏感 / 本机 / 可再生）────────────────────────
+# 登录态：cookie 在里面，泄露 = 别人能用你的号
+data/browser_profile/
+data/login_state.json
+
+# 你自己的作业数据（课程名、老师、作业标题、作答页 URL）
+data/homework.json
+data/tasks.json
+data/题目/
+data/courses_cache.json
+data/selection.json
+data/scan_log.txt
+data/app.log
+
+# 界面窗口的浏览器缓存（Edge 往里面塞自己的组件，几百 MB）
+data/ui_profile/
+
+# 单实例锁
+data/app.lock
+
+# 排查用的原始响应（含作答页 HTML、课程名、workId 等）
+debug/raw_html/
+debug/course_list_raw.json
+debug/homework_backup_*.json
+debug/*.png
+debug/*.html
+debug/preview_profile/
+
+# 一次性验证脚本（名字带 _ 的临时产物）
+_*.py
+_*.json
+_*.png
+_*.txt
+
+# Python 解释器的绝对路径（find_python.bat 自动写入，是本机专属的）
+.pyfound
+
+# 本机一次性的推送脚本（里面写着本机 git 路径和可用 IP，别人用不上）
+PushToGitHub.bat
+step1b-login-web.bat
+推送到GitHub.bat
+
+# ── Python ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ── 编辑器 / 系统 ────────────────────────────────────
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
