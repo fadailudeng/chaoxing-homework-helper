@@ -24,7 +24,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import browser  # noqa: E402
 import cleanup  # noqa: E402
 import config  # noqa: E402
-import pack  # noqa: E402
 import parser as hwparser  # noqa: E402
 import report  # noqa: E402
 import scanner  # noqa: E402
@@ -739,53 +738,6 @@ class Handler(BaseHTTPRequestHandler):
             self._json(get_courses(force="refresh=1" in self.path))
         elif path == "/api/tasks":
             self._json(task_index())
-        elif path == "/api/tasks/pack":
-            # 把（当前范围的）题目打包成一份 Markdown，**直接当文件下载**。
-            # ?course=<课程名> 只打包那一份作业（题目页的课程标签用）。
-            # ?save=1 额外落盘到 data/题目/ —— 界面上"存到本地"的按钮走这个。
-            saved = tasks.load_tasks() or {}
-            all_tasks = saved.get("tasks") or []
-            only = ""
-            if "course=" in self.path:
-                from urllib.parse import unquote, parse_qs  # noqa: PLC0415
-
-                only = (parse_qs(self.path.split("?", 1)[1]).get("course") or [""])[0]
-                only = unquote(only)
-            picked = [t for t in all_tasks if not only or t.get("course_name") == only]
-            if not picked:
-                self._json({"ok": False, "error": "还没有抓到的题目，先抓一次。"})
-                return
-
-            text = pack.build_pack(picked)
-            name = pack.suggest_filename(picked)
-            if "save=1" in self.path:
-                try:
-                    config.TASKS_DIR.mkdir(parents=True, exist_ok=True)
-                    target = config.TASKS_DIR / name
-                    target.write_text(text, encoding="utf-8")
-                    self._json({"ok": True, "saved": str(target), "name": name,
-                                "chars": len(text), "tasks": len(picked)})
-                except OSError as exc:
-                    self._json({"ok": False, "error": f"{type(exc).__name__}: {exc}"})
-                return
-
-            body = text.encode("utf-8")
-            # Content-Disposition 里的中文文件名要用 RFC 5987 的 filename*，
-            # 否则某些浏览器会存成乱码名。ASCII 兜底名放 filename=。
-            from urllib.parse import quote  # noqa: PLC0415
-
-            disp = (f"attachment; filename=\"homework.md\"; "
-                    f"filename*=UTF-8''{quote(name)}")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/markdown; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Content-Disposition", disp)
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            try:
-                self.wfile.write(body)
-            except (BrokenPipeError, ConnectionAbortedError):
-                pass
         elif path == "/api/tasks/state":
             self._json(task_snapshot())
         elif path == "/api/unblock/state":

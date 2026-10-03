@@ -88,6 +88,13 @@ def main() -> int:
     t0 = time.time()
     stopped = server._stop_running(port)
     check("旧进程自己退出、并让出端口", stopped, f"耗时 {time.time() - t0:.1f} 秒")
+    # ⚠️ 这里必须等，不能发完 shutdown 就立刻 poll：
+    # _die_soon() 里先 sleep(0.5) 把 HTTP 响应写完，才 os._exit(0)，
+    # 而 _stop_running() 一等到端口释放就返回了 —— 立刻 poll 必然拿到 None。
+    for _ in range(40):
+        if proc.poll() is not None:
+            break
+        time.sleep(0.1)
     check("旧进程确实退出了", proc.poll() is not None, f"退出码 {proc.poll()}")
     check("端口已释放", server._already_running(port) is False)
     server._FINGERPRINT = real

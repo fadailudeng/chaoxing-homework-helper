@@ -28,12 +28,6 @@ def get(url: str):
         return resp.status, resp.read()
 
 
-def get_full(url: str):
-    """同 get，但把响应头也带回来 —— 测 Content-Disposition 这类只用得上。"""
-    with urllib.request.urlopen(url, timeout=5) as resp:
-        return resp.status, dict(resp.headers), resp.read()
-
-
 def main() -> int:
     port = server.serve(0, open_window=False, block=False)
     base = f"http://127.0.0.1:{port}"
@@ -76,30 +70,20 @@ def main() -> int:
     check("GET /api/tasks/state", status == 200 and "phase" in tstate and "log" in tstate,
           f"phase={tstate.get('phase')} running={tstate.get('running')}")
 
-    # ── 打包给 AI ───────────────────────────────────────
-    check("题目页有「一键打包并粘贴给 AI」", 'id="pkSend"' in thtml, "pkSend")
-    for bid, why in (("pkCopy", "复制"), ("pkDownload", "下载"), ("pkSave", "存盘")):
-        check(f"题目页有「{why}」按钮", f'id="{bid}"' in thtml, bid)
-
-    # 打包接口：返回 Markdown 附件。**不测 save=1** —— 那会往 data/题目/ 写文件，
-    # 测试不该污染用户数据（save 分支靠手动验证，见 README）。
-    status, headers, body = get_full(f"{base}/api/tasks/pack")
-    packed = body.decode("utf-8")
-    disp = headers.get("Content-Disposition", "")
-    check("GET /api/tasks/pack 返回 Markdown 附件",
-          status == 200 and disp.startswith("attachment") and ".md" in disp,
-          f"{len(packed)} 字；{disp[:64]}")
-
-    has_tasks = bool(json.loads((get(f"{base}/api/tasks")[1]).decode("utf-8"))
-                     .get("saved", {}).get("tasks"))
-    if has_tasks:
-        check("打包内容含作答要求", "请帮我完成下面这些作业题" in packed, "")
-        check("打包内容含输入/输出格式",
-              "输入格式" in packed or "输出格式" in packed, "")
-        check("打包不含答案", "参考答案" not in packed and "正确答案是" not in packed, "")
-        check("打包默认不带 URL", "mooc1.chaoxing.com" not in packed, "")
-    else:
-        check("打包内容检查（还没抓过题目，跳过）", True, "只验证了接口和响应头")
+    # ── 题目的出口：「去问 AI」───────────────────────────
+    # 内容拼装在前端（web/题目.html 的 packText），服务端只管两件事：
+    # 给 AI 站点列表、用系统浏览器打开。这里把界面上的入口逐个点一遍名。
+    for aid, name in (("deepseek", "DeepSeek"), ("qianwen", "千问"), ("glm", "智谱清言")):
+        check(f"题目页有去问 AI：{name}", f'data-ai="{aid}"' in thtml, aid)
+    check("题目页写明复制范围与用途", "复制到剪贴板" in thtml, "")
+    check("题目页写明不生成答案", "本程序无关" in thtml, "")
+    # 单独发一份作业 / 一道题的入口 —— 要发单个就用它，整片混着发 AI 容易答窜
+    check("题目页有「复制这份作业的 Markdown」", "复制这份作业的 Markdown" in thtml, "")
+    check("题目页有「复制本题 Markdown」", "复制本题 Markdown" in thtml, "")
+    # 反向断言：2026-10-03 老大否掉了「一键打包」那排按钮（跟单个复制重复、
+    # 而且整片发会让不同科目混在一起）。别哪天又给加回来。
+    check("题目页没有多余的打包按钮",
+          all(b not in thtml for b in ("pkSend", "pkCopy", "pkDownload", "pkSave")), "")
 
     status, body = get(f"{base}/api/ai-sites")
     sites = json.loads(body.decode("utf-8"))
