@@ -120,14 +120,6 @@
   button.ai:hover{background:#eef4fb}
   button.ai:disabled{opacity:.45;cursor:default;background:#fff}
 
-  /* ── 打包给 AI ── */
-  .packbox{margin-top:14px;background:#f7faff;border:1px solid #cfe0f5;
-    border-radius:11px;padding:14px 16px}
-  .packbox .ptitle{font-size:13.5px;font-weight:700;color:var(--accent-dark);
-    margin-bottom:10px}
-  .packbox .row{margin-top:0}
-  .packbox button{margin-right:2px}
-
   .warnbar{margin-top:11px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;
     border-radius:9px;padding:11px 14px;font-size:13px;line-height:1.8}
   .warnbar b{color:#9a3412}
@@ -167,30 +159,15 @@
       <span class="hint">点按钮后会弹出一个浏览器窗口（抓取要用你的登录态），<b>别关它</b>，抓完自己会关。</span>
     </div>
 
-    <div class="packbox">
-      <div class="ptitle">把题目打包 → 丢给 AI</div>
-      <div class="row">
-        <button id="pkSend" class="primary">一键打包并粘贴给 AI</button>
-        <button class="ai" data-ai="deepseek">DeepSeek</button>
-        <button class="ai" data-ai="qianwen">千问</button>
-        <button class="ai" data-ai="glm">智谱清言</button>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <button id="pkCopy">复制打包内容（带作答要求）</button>
-        <button id="pkDownload">下载成文档 (.md)</button>
-        <button id="pkSave">存到 data\题目\</button>
-        <span class="hint" id="pkInfo"></span>
-      </div>
-      <div class="hint" style="margin-top:8px">
-        「<b>一键打包并粘贴给 AI</b>」= 把下面列出的题目整理成一份文档（含一句
-        <b>「每题给答案 + 说明理由、编程题给完整代码」</b>的要求）复制到剪贴板，
-        同时打开你选的 AI 网页，到那边 <b>Ctrl+V</b> 回车就行。
-        右边三个按钮是单独打开某个 AI。想只打包某一份作业，先点上面的课程标签再操作。
-      </div>
-      <div class="hint" style="margin-top:6px;color:var(--muted)">
-        ⚠️ 本程序<b>只整理题目、只负责投递</b>，不生成答案 —— 答案是你和 AI 之间的事，
-        请自己核对后再用。
-      </div>
+    <div class="airow" style="margin-top:14px">
+      <span class="lab">不会做的题 —— 去问 AI：</span>
+      <button class="ai" data-ai="deepseek">DeepSeek</button>
+      <button class="ai" data-ai="qianwen">千问</button>
+      <button class="ai" data-ai="glm">智谱清言</button>
+    </div>
+    <div class="hint" style="margin-top:6px">
+      点哪个都会<b>先把当前列出的题目复制到剪贴板</b>，再用浏览器打开它的网页 —— 到那边 <b>Ctrl+V</b> 就行。
+      只想发一份作业或一道题，用下面那份作业 / 那道题后面的「复制…Markdown」。
     </div>
     <div class="warnbar" id="warnbar" style="display:none"></div>
 
@@ -353,8 +330,9 @@ function render() {
   $('foot').innerHTML =
     `抓取时间：${esc(RESULT.fetched_at || '未知')}。题目已落盘到 <code>data\\题目\\</code>（每份作业一个 .md，外加一份「全部题目.md」）。<br>` +
     `本页只负责把题目抓下来、整理清楚 —— 答案与提交在你自己手里。<br>` +
-    `顶部的「去问 AI」三个按钮 = <b>把当前列出的题目复制到剪贴板</b> + <b>用系统浏览器打开对应网页</b>（DeepSeek / 千问 / 智谱清言）。` +
-    `它只是个快捷方式：题目是你自己发出去的，那边的回答和本程序无关，拿去核对前请自己判断。`;
+    `「去问 AI」三个按钮 = <b>把当前列出的题目复制到剪贴板</b> + <b>用系统浏览器打开对应网页</b>（DeepSeek / 千问 / 智谱清言）。` +
+    `它只是个快捷方式：题目是你自己发出去的，那边的回答和本程序无关，拿去核对前请自己判断。<br>` +
+    `<b>想只发一份作业或一道题</b>，用那份作业 / 那道题后面的「复制…Markdown」—— 混在一起发，AI 容易答窜。`;
 }
 
 function hwCard(t) {
@@ -521,110 +499,65 @@ function scopeTasks() {
   return ((RESULT && RESULT.tasks) || []).filter(t => !COURSE || t.course_name === COURSE);
 }
 
-/* 打包内容走**后端**生成（src/pack.py），不在前端拼 ——
-   这样「给 AI 的文档」和「下载下来的 .md」永远是同一份东西，
-   不会出现前端拼的和后端导出的不一样。 */
-async function fetchPack() {
-  const q = COURSE ? ('?course=' + encodeURIComponent(COURSE)) : '?';
-  let r;
-  try { r = await fetch('/api/tasks/pack' + q); } catch (e) { return { error: String(e) }; }
-  if (!r.ok) {
-    let msg = 'HTTP ' + r.status;
-    try { const j = await r.json(); msg = j.error || msg; } catch (e) { /* 非 JSON */ }
-    return { error: msg };
-  }
-  return { text: await r.text() };
+/* 要发给 AI 的那份文本 = 一句作答要求 + 当前列出的题目。
+   用已有的 mdQuestion 拼（跟「复制这份作业」同一套），**不带原页面 URL** ——
+   对 AI 没用，还等于把自己的作答页链接交出去。 */
+const ASK_BRIEF = [
+  '请帮我完成下面这些作业题。',
+  '',
+  '要求：',
+  '1. 每道题给出答案，并简要说明为什么（选择题说明其他选项错在哪）。',
+  '2. 编程题给出完整可运行的代码；题目给了模板的就按模板结构补全，保留原有函数名和签名。',
+  '3. 严格按题号顺序回答，每条开头标「第 N 题」，方便我对照。',
+  '4. 信息不足、无法确定的，直接说无法确定，不要猜。',
+  '',
+  '',
+].join('\n');
+
+function packText(tasks) {
+  let out = ASK_BRIEF;
+  tasks.forEach(t => {
+    out += `# ${t.course_name} · ${t.title}\n\n`;
+    (t.questions || []).forEach(q => { out += mdQuestion(q) + '\n'; });
+  });
+  return out;
 }
 
-function scopeName() {
-  const tasks = scopeTasks();
-  if (!tasks.length) return '';
-  return COURSE ? (COURSE + ' · ' + tasks[0].title) : ('全部待办作业（' + tasks.length + ' 份）');
-}
-
-/* 「一键打包并粘贴给 AI」+ 三个单个 AI 按钮，都走这里。
-   key 为 null = 不打开任何网页，只复制（pkCopy 用）。 */
+/* 「去问 AI」三个按钮都走这里：复制当前列出的题目 → 打开对应的 AI 网页。
+   复制在前、打开在后 —— 万一网页没打开，剪贴板里那份还在。
+   ⚠️ 只把题目递出去，不生成任何内容（见文件开头那句边界）。 */
 async function askAI(key, btn) {
   const tasks = scopeTasks();
   if (!tasks.length) {
     alert('还没有题目内容 —— 先点上面的「一键抓取全部待办题目」抓一次。');
     return;
   }
-  if (key && !AI_OK) { probeAI(); return; }
+  if (!AI_OK) { probeAI(); return; }
 
   const old = btn.textContent;
   btn.disabled = true;
-  btn.textContent = '打包中…';
-
-  const got = await fetchPack();
-  if (got.error) {
-    btn.textContent = '打包失败';
-    alert('打包失败：' + got.error);
-    setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 1800);
-    return;
-  }
-  const md = got.text;
+  const md = packText(tasks);
 
   let copied = false;
   try { await navigator.clipboard.writeText(md); copied = true; } catch (e) { copied = false; }
 
   let opened = false, why = '';
-  if (key) {
-    const site = AI_SITES[key];
-    try {
-      const r = await (await fetch('/api/open-url', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: site.url })
-      })).json();
-      opened = !!r.ok;
-      why = r.error || '';
-    } catch (e) { opened = false; why = String(e); }
-  }
+  const site = AI_SITES[key];
+  try {
+    const r = await (await fetch('/api/open-url', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: site.url })
+    })).json();
+    opened = !!r.ok;
+    why = r.error || '';
+  } catch (e) { opened = false; why = String(e); }
 
-  if (key && opened && copied) btn.textContent = '✓ 已复制 ' + md.length + ' 字，网页已开 → Ctrl+V';
-  else if (copied) btn.textContent = '✓ 已复制 ' + md.length + ' 字' + (key ? '（网页没打开，自己去 ' + AI_SITES[key].label + '）' : '');
-  else if (opened) btn.textContent = '网页已打开（复制失败，用「下载成文档」）';
-  else btn.textContent = key ? ('失败：' + (why || '未知')) : '复制失败';
+  if (opened && copied) btn.textContent = '✓ 已复制 ' + md.length + ' 字，网页已开 → Ctrl+V';
+  else if (copied) btn.textContent = '✓ 已复制 ' + md.length + ' 字（网页没打开，自己去 ' + site.label + '）';
+  else if (opened) btn.textContent = '网页已打开，但复制失败 —— 手动选中吧';
+  else btn.textContent = '失败：' + (why || '未知');
   setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 3200);
 }
-
-/* 「下载成文档」：直接吃后端的 Content-Disposition */
-$('pkDownload').onclick = function () {
-  if (!scopeTasks().length) {
-    alert('还没有题目内容 —— 先点上面的「一键抓取全部待办题目」抓一次。');
-    return;
-  }
-  const q = COURSE ? ('?course=' + encodeURIComponent(COURSE)) : '?';
-  window.location.href = '/api/tasks/pack' + q;
-};
-
-/* 「存到 data\题目\」：让后端落盘，返回真实路径 */
-$('pkSave').onclick = async function () {
-  const btn = this;
-  const tasks = scopeTasks();
-  if (!tasks.length) {
-    alert('还没有题目内容 —— 先点上面的「一键抓取全部待办题目」抓一次。');
-    return;
-  }
-  const old = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '保存中…';
-  const q = (COURSE ? ('?course=' + encodeURIComponent(COURSE) + '&') : '?') + 'save=1';
-  try {
-    const d = await (await fetch('/api/tasks/pack' + q)).json();
-    if (d.ok) {
-      btn.textContent = '✓ 已存到 data\\题目\\';
-      $('pkInfo').textContent = '已保存：' + d.saved + '（' + d.tasks + ' 份，' + d.chars + ' 字）';
-    } else {
-      btn.textContent = '保存失败';
-      $('pkInfo').textContent = d.error || '';
-    }
-  } catch (e) {
-    btn.textContent = '保存失败';
-    $('pkInfo').textContent = String(e);
-  }
-  setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 3000);
-};
 
 /* ── 过验证码（跟主界面同一个后端接口）─────────────────
    为什么不做网络轮询：风控期间每隔几秒再发请求等于往枪口上撞。
@@ -655,10 +588,6 @@ $('go').onclick = start;
 document.querySelectorAll('button.ai').forEach(btn => {
   btn.onclick = () => askAI(btn.dataset.ai, btn);
 });
-/* 「一键打包并粘贴给 AI」= 打包 + 复制，但不指定站点。
-   默认打开 DeepSeek（最常用）——想换别的就用右边那三个按钮。 */
-$('pkSend').onclick = function () { askAI('deepseek', this); };
-$('pkCopy').onclick = function () { askAI(null, this); };
 
 /* 清理缓存：题目页只放个快捷入口，走安全档。
    要挑档位 / 看明细的话去主界面（那边有完整弹窗）。
