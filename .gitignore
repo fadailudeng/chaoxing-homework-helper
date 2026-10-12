@@ -11,6 +11,9 @@ data/courses_cache.json
 data/selection.json
 data/scan_log.txt
 data/app.log
+# 程序自动生成的静态看板快照 —— 内容和上面那些数据一样敏感
+# （真实课程名、任课老师姓名、作业标题、带 enc 令牌的作答页链接），别提交
+web/作业看板.html
 
 # 界面窗口的浏览器缓存（Edge 往里面塞自己的组件，几百 MB）
 data/ui_profile/
