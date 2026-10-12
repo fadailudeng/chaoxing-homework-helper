@@ -71,7 +71,7 @@ def main() -> int:
           f"phase={tstate.get('phase')} running={tstate.get('running')}")
 
     # ── 题目的出口：「去问 AI」───────────────────────────
-    # 内容拼装在前端（web/题目.html 的 packText），服务端只管两件事：
+    # 复制题目在前端做（web/题目.html 的 mdFor / mdQuestion），服务端只管两件事：
     # 给 AI 站点列表、用系统浏览器打开。这里把界面上的入口逐个点一遍名。
     for aid, name in (("deepseek", "DeepSeek"), ("qianwen", "千问"), ("glm", "智谱清言")):
         check(f"题目页有去问 AI：{name}", f'data-ai="{aid}"' in thtml, aid)

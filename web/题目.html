@@ -166,8 +166,9 @@
       <button class="ai" data-ai="glm">智谱清言</button>
     </div>
     <div class="hint" style="margin-top:6px">
-      点哪个都会<b>先把当前列出的题目复制到剪贴板</b>，再用浏览器打开它的网页 —— 到那边 <b>Ctrl+V</b> 就行。
-      只想发一份作业或一道题，用下面那份作业 / 那道题后面的「复制…Markdown」。
+      这三个按钮<b>只帮你打开网页，不动剪贴板</b>。<br>
+      用法：先用下面那份作业 / 那道题后面的「复制…Markdown」把要发的题目<b>复制到剪贴板</b>，
+      再点这里打开网页，到那边 <b>Ctrl+V</b> 就行。
     </div>
     <div class="warnbar" id="warnbar" style="display:none"></div>
 
@@ -330,9 +331,9 @@ function render() {
   $('foot').innerHTML =
     `抓取时间：${esc(RESULT.fetched_at || '未知')}。题目已落盘到 <code>data\\题目\\</code>（每份作业一个 .md，外加一份「全部题目.md」）。<br>` +
     `本页只负责把题目抓下来、整理清楚 —— 答案与提交在你自己手里。<br>` +
-    `「去问 AI」三个按钮 = <b>把当前列出的题目复制到剪贴板</b> + <b>用系统浏览器打开对应网页</b>（DeepSeek / 千问 / 智谱清言）。` +
-    `它只是个快捷方式：题目是你自己发出去的，那边的回答和本程序无关，拿去核对前请自己判断。<br>` +
-    `<b>想只发一份作业或一道题</b>，用那份作业 / 那道题后面的「复制…Markdown」—— 混在一起发，AI 容易答窜。`;
+    `「去问 AI」三个按钮（DeepSeek / 千问 / 智谱清言）= <b>用系统浏览器打开对应网页</b>，<b>不动剪贴板</b>。` +
+    `要发什么，先用那份作业 / 那道题的「复制…Markdown」复制到剪贴板，再点它开网页、到那边 Ctrl+V。` +
+    `它只是个快捷方式：题目是你自己发出去的，那边的回答和本程序无关，拿去核对前请自己判断。`;
 }
 
 function hwCard(t) {
@@ -494,52 +495,18 @@ async function probeAI() {
   $('ub').disabled = !AI_OK;
 }
 
-/* 当前范围的题目：全部，或只看某一份作业（点了课程标签） */
-function scopeTasks() {
-  return ((RESULT && RESULT.tasks) || []).filter(t => !COURSE || t.course_name === COURSE);
-}
-
-/* 要发给 AI 的那份文本 = 一句作答要求 + 当前列出的题目。
-   用已有的 mdQuestion 拼（跟「复制这份作业」同一套），**不带原页面 URL** ——
-   对 AI 没用，还等于把自己的作答页链接交出去。 */
-const ASK_BRIEF = [
-  '请帮我完成下面这些作业题。',
-  '',
-  '要求：',
-  '1. 每道题给出答案，并简要说明为什么（选择题说明其他选项错在哪）。',
-  '2. 编程题给出完整可运行的代码；题目给了模板的就按模板结构补全，保留原有函数名和签名。',
-  '3. 严格按题号顺序回答，每条开头标「第 N 题」，方便我对照。',
-  '4. 信息不足、无法确定的，直接说无法确定，不要猜。',
-  '',
-  '',
-].join('\n');
-
-function packText(tasks) {
-  let out = ASK_BRIEF;
-  tasks.forEach(t => {
-    out += `# ${t.course_name} · ${t.title}\n\n`;
-    (t.questions || []).forEach(q => { out += mdQuestion(q) + '\n'; });
-  });
-  return out;
-}
-
-/* 「去问 AI」三个按钮都走这里：复制当前列出的题目 → 打开对应的 AI 网页。
-   复制在前、打开在后 —— 万一网页没打开，剪贴板里那份还在。
-   ⚠️ 只把题目递出去，不生成任何内容（见文件开头那句边界）。 */
+/* 「去问 AI」三个按钮：**只负责打开对应网页，完全不碰剪贴板**。
+   为什么这么改（2026-10-12 老大报的）：
+   原来这里会顺手把「当前列出的题目」复制进剪贴板 —— 于是
+   「点开第一份作业 → 点『复制这份作业的 Markdown』→ 再点顶部的 AI 按钮」时，
+   刚复制好的那一份会被**覆盖成全部四份**，看起来就像「复制这份作业复制了四个」。
+   他的原话：「我已经复制了，打开的时候再复制不是多此一举吗」。
+   → 复制归「复制…Markdown」，打开归这里，各管一件事，互不干扰。 */
 async function askAI(key, btn) {
-  const tasks = scopeTasks();
-  if (!tasks.length) {
-    alert('还没有题目内容 —— 先点上面的「一键抓取全部待办题目」抓一次。');
-    return;
-  }
   if (!AI_OK) { probeAI(); return; }
 
   const old = btn.textContent;
   btn.disabled = true;
-  const md = packText(tasks);
-
-  let copied = false;
-  try { await navigator.clipboard.writeText(md); copied = true; } catch (e) { copied = false; }
 
   let opened = false, why = '';
   const site = AI_SITES[key];
@@ -552,10 +519,9 @@ async function askAI(key, btn) {
     why = r.error || '';
   } catch (e) { opened = false; why = String(e); }
 
-  if (opened && copied) btn.textContent = '✓ 已复制 ' + md.length + ' 字，网页已开 → Ctrl+V';
-  else if (copied) btn.textContent = '✓ 已复制 ' + md.length + ' 字（网页没打开，自己去 ' + site.label + '）';
-  else if (opened) btn.textContent = '网页已打开，但复制失败 —— 手动选中吧';
-  else btn.textContent = '失败：' + (why || '未知');
+  btn.textContent = opened
+    ? '✓ 网页已打开 → 到那边 Ctrl+V'
+    : '打开失败：' + (why || '未知');
   setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 3200);
 }
 
